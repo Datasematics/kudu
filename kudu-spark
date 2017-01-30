@@ -1,0 +1,62 @@
+Kudu spark
+
+To Include the kudu-spark dependency using the --packages option:
+
+Use kudu-spark2_2.11 artifact if using Spark 2 with Scala 2.11
+
+-> spark-shell --packages org.apache.kudu:kudu-spark2_2.11:1.1.0
+
+
+then import kudu-spark and create a dataframe:
+
+->import org.apache.kudu.spark.kudu._
+
+// Read a table from Kudu
+->val df1 = sqlContext.read.options(Map("kudu.kuduMaster" -> "kudu.kuduMaster:7051","kudu.table" -> "my_table")).kudu
+
+//Query using Spark API
+->df1.select("key_column_a").show()
+
+17/01/23 03:02:22 WARN util.NetUtil: Slow DNS lookup! Resolved IP of `quickstart.cloudera' to quickstart.cloudera/10.0.2.15 in 12812800ns
++------------+                                                                  
+|key_column_a|
++------------+
+|     value 2|
+|     value 0|
+|     value 1|
++------------+
+
+
+/ ...or register a temporary table and use SQL
+-->df.registerTempTable("kudu_table")
+-->val filteredDF = sqlContext.sql("select id from kudu_table where id >= 	5").show()
+
+// Use KuduContext to create, delete, or write to Kudu tables
+--> val kuduContext = new KuduContext("kudu.master:7051")
+
+// Create a new Kudu table from a dataframe schema
+// NB: No rows from the dataframe are inserted into the table
+--> kuduContext.createTable("test_table", df.schema, Seq("key"), new CreateTableOptions().setNumReplicas(1))
+
+// Insert data
+--> kuduContext.insertRows(df, "test_table")
+
+// Delete data
+--> kuduContext.deleteRows(filteredDF, "test_table")
+
+// Upsert data
+--> kuduContext.upsertRows(df, "test_table")
+
+// Update data
+--> val alteredDF = df.select("id", $"count" + 1)
+
+// Data can also be inserted into the Kudu table using the data source, though the methods on KuduContext are preferred
+// NB: The default is to upsert rows; to perform standard inserts instead, set operation = insert in the options map
+// NB: Only mode Append is supported
+--> df.write.options(Map("kudu.master"-> "kudu.master:7051", "kudu.table"-> "test_table")).mode("append").kudu
+
+// Check for the existence of a Kudu table
+--> kuduContext.tableExists("another_table")
+
+// Delete a Kudu table
+--> kuduContext.deleteTable("unwanted_table")
